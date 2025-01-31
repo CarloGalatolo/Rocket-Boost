@@ -1,22 +1,33 @@
-using System;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 public class CollisionHandler : MonoBehaviour
 {
+	// Params
 	[SerializeField] float endDelay = 2;
-	[SerializeField] AudioClip crashSound;
-	[SerializeField] AudioClip successSound;
 
+	// Refs
+	[SerializeField] AudioClip crashSFX;
+	[SerializeField] AudioClip successSFX;
+	[SerializeField] ParticleSystem crashParticle;
+	[SerializeField] ParticleSystem successParticle;
+	[SerializeField] ParticleSystem thrustParticle;
+	[SerializeField] ParticleSystem rightThrustParticle;
+	[SerializeField] ParticleSystem leftThrustParticle;
+
+	// Cache
 	AudioSource audioSource;
 
-	bool isControllable = true;
+	// State
+	bool bIsControllable = true;
+	bool bCanCrash = true;
 	
 	
 	// Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start ()
     {
+		// Caching
         audioSource = GetComponent<AudioSource>();
     }
 
@@ -24,13 +35,13 @@ public class CollisionHandler : MonoBehaviour
     // Update is called once per frame
     void Update ()
     {
-        
+        RespondToDebugKeys();
     }
 
 
-    void OnCollisionEnter (Collision other)
+	void OnCollisionEnter (Collision other)
     {
-		if ( !isControllable ) { return; }
+		if ( !bIsControllable ) { return; }
 
         switch ( other.gameObject.tag ) 
         {
@@ -39,11 +50,7 @@ public class CollisionHandler : MonoBehaviour
 				break;
 
 			case "Friendly":
-                Debug.Log("Nice and smooth.");
-                break;
-
-            case "Pickable":
-                Debug.Log("Yummy!");
+                // Collision won't destroy the player.
                 break;
 
             default:
@@ -54,23 +61,38 @@ public class CollisionHandler : MonoBehaviour
 
 
 	void StartCrashSequence()
-    {
-		isControllable = false;
-		GetComponent<Rigidbody>().freezeRotation = false;
-		GetComponent<Movement>().enabled = false;
-		audioSource.Stop();
-		audioSource.PlayOneShot(crashSound, 0.5f);
-		Invoke("ReloadLevel", endDelay);
-    }
-
+	{
+		if ( bCanCrash )
+		{
+			bIsControllable = false;
+			GetComponent<Rigidbody>().freezeRotation = false;
+			GetComponent<Movement>().enabled = false;
+			audioSource.Stop();
+			audioSource.PlayOneShot(crashSFX, 0.5f);
+			StopThrusterParticles();
+			crashParticle.Play();
+			Invoke("ReloadLevel", endDelay);
+		}
+	}
+	
 
 	void StartSuccessSequence()
 	{
-		isControllable = false;
+		bIsControllable = false;
 		GetComponent<Movement>().enabled = false;
 		audioSource.Stop();
-		audioSource.PlayOneShot(successSound, 0.7f);
+		audioSource.PlayOneShot(successSFX, 0.7f);
+		StopThrusterParticles();
+		successParticle.Play();
 		Invoke("LoadNextLevel", endDelay);
+	}
+
+
+	void StopThrusterParticles ()
+	{
+		thrustParticle.Stop();
+		rightThrustParticle.Stop();
+		leftThrustParticle.Stop();
 	}
 
 
@@ -93,4 +115,19 @@ public class CollisionHandler : MonoBehaviour
         int currentScene = SceneManager.GetActiveScene().buildIndex;
         SceneManager.LoadScene(currentScene);
     }
+
+
+	void RespondToDebugKeys()
+	{
+		if ( Keyboard.current.lKey.wasReleasedThisFrame )
+		{
+			LoadNextLevel();
+		}
+
+		if ( Keyboard.current.cKey.wasReleasedThisFrame )
+		{
+			bCanCrash = !bCanCrash;
+			Debug.Log("bCanCrash = " + bCanCrash);
+		}
+	}
 }
